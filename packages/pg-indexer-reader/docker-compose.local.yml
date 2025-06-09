@@ -16,19 +16,19 @@ services:
       - /var/lib/postgresql/data
 
   postgres-index-write:
-    image: ghcr.io/latticexyz/store-indexer:sha-338c8e5
+    image: ghcr.io/latticexyz/store-indexer:sha-735d957
     restart: always
     platform: linux/amd64
     networks:
       - indexer-network
     environment:
-      RPC_HTTP_URL: http://host.docker.internal:8545
+      RPC_HTTP_URL: https://lanky-ill-funny-testnet-indexer.skalenodes.com:10136
       DEBUG: "mud:*"
       DATABASE_URL: postgres://user:password@postgres/postgres
     command: pnpm tsx bin/postgres-decoded-indexer
 
   postgres-query-read:
-    image: pg-indexer-reader
+    image: ghcr.io/primodiumxyz/pg-indexer-reader:sha-ae5871c
     build:
       context: .
     restart: always
@@ -36,7 +36,7 @@ services:
     networks:
       - indexer-network
     environment:
-      RPC_HTTP_URL: http://host.docker.internal:8545
+      RPC_HTTP_URL: https://lanky-ill-funny-testnet-indexer.skalenodes.com:10136
       DEBUG: "mud:*"
       DATABASE_URL: postgres://user:password@postgres/postgres
     ports:

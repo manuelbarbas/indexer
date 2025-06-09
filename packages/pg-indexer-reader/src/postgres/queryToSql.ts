@@ -5,15 +5,6 @@ import { PendingQuery, Row, Sql } from "postgres";
 
 import { convertIfHexOtherwiseReturnString, Query, Record } from "@/util/common";
 
-/**
- * Function to convert a single condition into SQL.
- *
- * @param sql - The SQL connection
- * @param schemaName - The name of the schema
- * @param dbTableName - The name of the table
- * @param where - The where clause
- * @returns The SQL query
- */
 function _where(
   sql: Sql,
   schemaName: string,
@@ -41,103 +32,67 @@ function _where(
   }
 }
 
-/**
- * Function to combine conditions with AND logic.
- *
- * @param sql - The SQL connection
- * @param conditions - The conditions to AND
- * @returns The AND condition
- */
 function _and(sql: Sql, conditions: PendingQuery<Row[]>[]): PendingQuery<Row[]> {
-  return sql`(${conditions.reduce((query, condition) => sql`${query} AND ${condition}`)})`;
+  return conditions.reduce((query, condition) => sql`${query} AND ${condition}`);
 }
 
-/**
- * Function to combine conditions with OR logic.
- *
- * @param sql - The SQL connection
- * @param conditions - The conditions to OR
- * @returns The OR condition
- */
 function _or(sql: Sql, conditions: PendingQuery<Row[]>[]): PendingQuery<Row[]> {
-  return sql`(${conditions.reduce((query, condition) => sql`${query} OR ${condition}`)})`;
+  return conditions.reduce((query, condition) => sql`${query} OR ${condition}`);
 }
 
-/**
- * Function to combine queries with UNION ALL logic.
- *
- * @param sql - The SQL connection
- * @param queries - The queries to UNION ALL
- * @returns The UNION ALL query
- */
 function _union(sql: Sql, queries: PendingQuery<Row[]>[]) {
   return queries.reduce((acc, query) => sql`${acc} UNION ALL ${query}`);
 }
 
-/**
- * Function to query filtered records from the database.
- *
- * @param sql - The SQL connection
- * @param query - The query to filter
- * @param address - The address of the world contract
- * @returns The filtered records
- */
 function filterRecords(sql: Sql, query: PendingQuery<Row[]>, address: string) {
   return sql`
     WITH filter as (
-     ${query}
+      ${query}
     )
-      SELECT 
-        '0x' || encode(address, 'hex') AS address,
-        '0x' || encode(mud.records.table_id, 'hex') AS "tableId",
-        '0x' || encode(key_bytes, 'hex') AS "keyBytes",
-        '0x' || encode(static_data, 'hex') AS "staticData",
-        '0x' || encode(encoded_lengths, 'hex') AS "encodedLengths",
-        '0x' || encode(dynamic_data, 'hex') AS "dynamicData",
-        block_number AS "recordBlockNumber",
-        log_index AS "logIndex"
-      FROM mud.records
-      JOIN filter on filter.__key_bytes = mud.records.key_bytes AND filter.table_id = mud.records.table_id
-      WHERE mud.records.address = ${convertIfHexOtherwiseReturnString(address)} AND mud.records.is_deleted = false
+    SELECT 
+      '0x' || encode(address, 'hex') AS address,
+      '0x' || encode(mud.records.table_id, 'hex') AS "tableId",
+      '0x' || encode(key_bytes, 'hex') AS "keyBytes",
+      '0x' || encode(static_data, 'hex') AS "staticData",
+      '0x' || encode(encoded_lengths, 'hex') AS "encodedLengths",
+      '0x' || encode(dynamic_data, 'hex') AS "dynamicData",
+      block_number AS "recordBlockNumber",
+      log_index AS "logIndex"
+    FROM mud.records
+    JOIN filter on filter.__key_bytes = mud.records.key_bytes AND filter.table_id = mud.records.table_id
+    WHERE mud.records.address = ${convertIfHexOtherwiseReturnString(address)} AND mud.records.is_deleted = false
   `;
 }
 
 function getRecordsForTableIDs(sql: Sql, address: string, tableIDs: string[]) {
   return sql`
-      SELECT 
-        '0x' || encode(address, 'hex') AS address,
-        '0x' || encode(mud.records.table_id, 'hex') AS "tableId",
-        '0x' || encode(key_bytes, 'hex') AS "keyBytes",
-        '0x' || encode(static_data, 'hex') AS "staticData",
-        '0x' || encode(encoded_lengths, 'hex') AS "encodedLengths",
-        '0x' || encode(dynamic_data, 'hex') AS "dynamicData",
-        block_number AS "recordBlockNumber",
-        log_index AS "logIndex"
-      FROM mud.records
-      WHERE mud.records.address = ${convertIfHexOtherwiseReturnString(
-        address,
-      )} AND mud.records.is_deleted = false AND mud.records.table_id IN ${sql(
-        tableIDs.map((id) => convertIfHexOtherwiseReturnString(id)),
-      )}
+    SELECT 
+      '0x' || encode(address, 'hex') AS address,
+      '0x' || encode(mud.records.table_id, 'hex') AS "tableId",
+      '0x' || encode(key_bytes, 'hex') AS "keyBytes",
+      '0x' || encode(static_data, 'hex') AS "staticData",
+      '0x' || encode(encoded_lengths, 'hex') AS "encodedLengths",
+      '0x' || encode(dynamic_data, 'hex') AS "dynamicData",
+      block_number AS "recordBlockNumber",
+      log_index AS "logIndex"
+    FROM mud.records
+    WHERE mud.records.address = ${convertIfHexOtherwiseReturnString(
+      address,
+    )} AND mud.records.is_deleted = false AND mud.records.table_id IN ${sql(
+      tableIDs.map((id) => convertIfHexOtherwiseReturnString(id)),
+    )}
   `;
 }
 
-/**
- * Function to convert a query object into an SQL query.
- *
- * @param sql - The SQL connection
- * @param address - The address of the world contract
- * @param query - The query to convert
- * @returns The SQL query
- */
 export function toSQL(sql: Sql, address: string, query: Query[]): PendingQuery<Record[]> {
   const noConditionTableIDs: string[] = [];
+  const formattedAddress = address.toLowerCase();
 
   const queries = query
     .map(({ tableId, where, and, or, include }) => {
       const { name, namespace } = hexToResource(tableId);
-      const dbTableName = `${snakeCase(namespace)}__${snakeCase(name)}`;
-      const schema = address;
+      const dbTableName = `${snakeCase(name)}`;
+      const schema = `${formattedAddress}__${namespace}`;
 
       if (!where && !and && !or && !include) {
         noConditionTableIDs.push(tableId);
@@ -162,13 +117,14 @@ export function toSQL(sql: Sql, address: string, query: Query[]): PendingQuery<R
       let _query = sql`
         SELECT __key_bytes, ${convertIfHexOtherwiseReturnString(tableId)} as table_id 
         FROM ${sql(schema)}.${sql(dbTableName)}
-        ${whereClause ? sql`WHERE ${whereClause}` : sql``}`;
+        ${whereClause ? sql`WHERE ${whereClause}` : sql``}
+      `;
 
       if (include && include.length) {
         const includeQueries = include.map(({ tableId: joinTableId, on }) => {
-          const { name, namespace } = hexToResource(joinTableId);
-          const joinSchema = address;
-          const joinTableName = `${snakeCase(namespace)}__${snakeCase(name)}`;
+          const { namespace: joinNamespace, name: joinName } = hexToResource(joinTableId);
+          const joinSchema = `${formattedAddress}__${joinNamespace}`;
+          const joinTableName = `${snakeCase(joinName)}`;
 
           return sql`
             SELECT ${sql(joinSchema)}.${sql(joinTableName)}.__key_bytes, ${convertIfHexOtherwiseReturnString(
@@ -176,7 +132,8 @@ export function toSQL(sql: Sql, address: string, query: Query[]): PendingQuery<R
             )} as table_id
             FROM (${_query}) AS base
             JOIN ${sql(joinSchema)}.${sql(joinTableName)}
-            ON ${sql(joinSchema)}.${sql(joinTableName)}.${sql(on)} = base.__key_bytes`;
+            ON ${sql(joinSchema)}.${sql(joinTableName)}.${sql(on)} = base.__key_bytes
+          `;
         });
 
         _query = _union(sql, [_query, ...includeQueries]);
@@ -186,9 +143,8 @@ export function toSQL(sql: Sql, address: string, query: Query[]): PendingQuery<R
     })
     .filter(isNotNull) as PendingQuery<Row[]>[];
 
-  const filteredRecords = queries.length ? filterRecords(sql, _union(sql, queries), address) : null;
-
-  const rawRecords = noConditionTableIDs.length ? getRecordsForTableIDs(sql, address, noConditionTableIDs) : null;
+  const filteredRecords = queries.length ? filterRecords(sql, _union(sql, queries), formattedAddress) : null;
+  const rawRecords = noConditionTableIDs.length ? getRecordsForTableIDs(sql, formattedAddress, noConditionTableIDs) : null;
 
   const records = [filteredRecords, rawRecords].filter(isNotNull) as PendingQuery<Row[]>[];
 

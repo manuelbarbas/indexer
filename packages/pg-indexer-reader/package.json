@@ -30,8 +30,8 @@
     "dev": "tsx bin/postgres-frontend",
     "lint": "eslint .",
     "start": "NODE_ENV=production tsx dist/bin/postgres-frontend",
-    "start:local": "docker-compose -f docker-compose.local.yml up --build",
-    "clean:local": "docker-compose -f docker-compose.local.yml down -v"
+    "start:local": "docker compose -f docker-compose.local.yml up --build",
+    "clean:local": "docker compose -f docker-compose.local.yml down -v"
   },
   "dependencies": {
     "@koa/cors": "^4.0.0",
