@@ -122,9 +122,6 @@ export function apiIndexer(database: Sql, apiKey: string): Middleware {
 
     try {
       const input = dbQuerySchema.parse(typeof ctx.query.input === "string" ? JSON.parse(ctx.query.input) : {});
-
-      console.log("input ", input);
-
       const records = await toSQL(database, input.address, input.queries);
       benchmark("query records");
 

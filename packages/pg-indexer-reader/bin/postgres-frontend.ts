@@ -16,13 +16,13 @@ const env = parseEnv(
   z.intersection(
     frontendEnvSchema,
     z.object({
-      AUTH_DATABASE_URL: z.string(),
+      INDEXER_DATABASE_URL: z.string(),
       API_KEY: z.string().min(1),
     }),
   ),
 );
 
-const database = postgres(env.AUTH_DATABASE_URL, { prepare: false });
+const database = postgres(env.INDEXER_DATABASE_URL, { prepare: false });
 
 const server = new Koa();
 
