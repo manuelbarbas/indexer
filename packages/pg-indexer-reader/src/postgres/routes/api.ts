@@ -12,20 +12,23 @@ import { toSQL } from "@/postgres/queryToSql";
 import { compress } from "@/util/compress";
 import { debug, error } from "@/util/debug";
 import { recordToLog } from "@/util/recordToLog";
-import { authenticate } from "../middleware/authenticate"; // Import the authenticate middleware
 
-/**
- * API routes for querying indexed logs. These routes require authentication.
- *
- * @param indexerDatabase - The database connection for indexed data.
- * @param jwtSecret - The secret for verifying JWT tokens.
- * @returns The Koa middleware.
- */
-export function apiIndexer(indexerDatabase: Sql, jwtSecret: string): Middleware {
+
+export function apiIndexer(database: Sql, apiKey: string): Middleware {
   const router = new Router();
 
   // Apply authentication middleware to all routes in this router
-  router.use(authenticate(jwtSecret));
+  router.use(async (ctx, next) => {
+    if (ctx.path.startsWith("/api")) {
+      const providedKey = ctx.get('x-api-key');
+      if (!providedKey || providedKey !== apiKey) {
+        ctx.status = 401;
+        ctx.body = 'Unauthorized';
+        return;
+      }
+    }
+    await next();
+  });
 
   const rateLimiter = ratelimit({
     driver: 'memory', // Consider Redis for production
@@ -42,7 +45,7 @@ export function apiIndexer(indexerDatabase: Sql, jwtSecret: string): Middleware 
     },
   });
 
-  router.use(rateLimiter); // Apply rate limiter to indexer API routes
+  router.use(rateLimiter);
 
   router.get("/api/logs", compress(), async (ctx) => {
     const benchmark = createBenchmark("postgres:logs");
@@ -62,7 +65,7 @@ export function apiIndexer(indexerDatabase: Sql, jwtSecret: string): Middleware 
     try {
       options.filters = options.filters && options.filters.length > 0 ? [...options.filters] : [];
 
-      const records = await queryLogs(indexerDatabase, options ?? {}).execute();
+      const records = await queryLogs(database, options ?? {}).execute();
       benchmark("query records");
 
       if (records.length === 0) {
@@ -122,7 +125,7 @@ export function apiIndexer(indexerDatabase: Sql, jwtSecret: string): Middleware 
 
       console.log("input ", input);
 
-      const records = await toSQL(indexerDatabase, input.address, input.queries);
+      const records = await toSQL(database, input.address, input.queries);
       benchmark("query records");
 
       if (records.length === 0) {
