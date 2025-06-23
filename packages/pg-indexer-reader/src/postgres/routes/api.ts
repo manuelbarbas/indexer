@@ -20,7 +20,18 @@ export function apiIndexer(database: Sql, apiKey: string): Middleware {
   // Apply authentication middleware to all routes in this router
   router.use(async (ctx, next) => {
     if (ctx.path.startsWith("/api")) {
+      
       const providedKey = ctx.get('x-api-key');
+
+      console.log('Auth Check:', {
+        path: ctx.path,
+        method: ctx.method,
+        providedKey,
+        expectedKey: apiKey,
+        match: providedKey === apiKey
+      });
+    
+
       if (!providedKey || providedKey !== apiKey) {
         ctx.status = 401;
         ctx.body = 'Unauthorized';
@@ -169,9 +180,38 @@ export function apiIndexer(database: Sql, apiKey: string): Middleware {
       ctx.body = readableStream;
       ctx.status = 200;
     } catch (e: any) {
+      console.error("Error in queryLogs:", {
+        message: e.message,
+        stack: e.stack,
+        cause: e.cause,
+        name: e.name,
+        code: e.code,
+        detail: e.detail,
+        hint: e.hint,
+        position: e.position,
+        internalPosition: e.internalPosition,
+        internalQuery: e.internalQuery,
+        where: e.where,
+        schema: e.schema,
+        table: e.table,
+        column: e.column,
+        dataType: e.dataType,
+        constraint: e.constraint,
+        file: e.file,
+        line: e.line,
+        routine: e.routine
+      });
       ctx.status = 500;
       ctx.set("Content-Type", "application/json");
-      ctx.body = JSON.stringify({ error: "Server error querying specific logs", details: e });
+      ctx.body = JSON.stringify({ 
+        error: "Server error querying specific logs", 
+        details: {
+          message: e.message,
+          code: e.code,
+          detail: e.detail,
+          hint: e.hint
+        }
+      });
       debug(e);
       return;
     }

@@ -136,8 +136,8 @@ export function toSQL(sql: Sql, address: string, query: Query[]): PendingQuery<R
   const queries = query
     .map(({ tableId, where, and, or, include }) => {
       const { name, namespace } = hexToResource(tableId);
-      const dbTableName = `${snakeCase(namespace)}__${snakeCase(name)}`;
-      const schema = address;
+      const dbTableName = `${snakeCase(name)}`;
+      const schema = address +"__"+ namespace ;
 
       if (!where && !and && !or && !include) {
         noConditionTableIDs.push(tableId);
@@ -167,8 +167,8 @@ export function toSQL(sql: Sql, address: string, query: Query[]): PendingQuery<R
       if (include && include.length) {
         const includeQueries = include.map(({ tableId: joinTableId, on }) => {
           const { name, namespace } = hexToResource(joinTableId);
-          const joinSchema = address;
-          const joinTableName = `${snakeCase(namespace)}__${snakeCase(name)}`;
+          const joinSchema = address + "__" + namespace;
+          const joinTableName = `${snakeCase(name)}`;
 
           return sql`
             SELECT ${sql(joinSchema)}.${sql(joinTableName)}.__key_bytes, ${convertIfHexOtherwiseReturnString(
