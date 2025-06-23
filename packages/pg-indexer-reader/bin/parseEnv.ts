@@ -7,34 +7,22 @@ export const frontendEnvSchema = z.object({
   INDEXER_PORT: z.coerce.number().positive().default(3001),
 });
 
-// Configuration for the MUD indexer writer
-export const indexerEnvSchema = z.intersection(
+export const httpsEnvSchema = z.object({
+  HTTPS_ENABLED: z.coerce.boolean().default(false),
+  HTTPS_KEY_PATH: z.string().optional(),
+  HTTPS_CERT_PATH: z.string().optional(),
+}).optional();
+
+export const serverEnvSchema = z.intersection(
+  frontendEnvSchema,
   z.object({
-    // The block it should start indexing from
-    START_BLOCK: z.coerce.bigint().nonnegative().default(0n),
-    // The maximum amount of blocks to fetch and store per batch
-    MAX_BLOCK_RANGE: z.coerce.bigint().positive().default(1000n),
-    // The polling interval in milliseconds
-    POLLING_INTERVAL: z.coerce.number().positive().default(1000),
-    // The address of the world contract
-    STORE_ADDRESS: z
-      .string()
-      .optional()
-      .transform((input) => (input === "" ? undefined : input))
-      .refine((input) => input === undefined || isHex(input)),
-  }),
-  z.union([
-    // The URL and WebSocket URL of the RPC endpoint
-    z.object({
-      RPC_HTTP_URL: z.string(),
-      RPC_WS_URL: z.string().optional(),
-    }),
-    z.object({
-      RPC_HTTP_URL: z.string().optional(),
-      RPC_WS_URL: z.string(),
-    }),
-  ]),
+    INDEXER_DATABASE_URL: z.string().min(1), // Required for Primodium Indexer DB
+    AUTH_DATABASE_URL: z.string().min(1),    // Required for Auth DB (Render)
+    JWT_SECRET: z.string().min(1),           // Required for JWTs
+  }).and(httpsEnvSchema || z.object({})) // Merge HTTPS schema if it exists, or an empty object
 );
+
+
 
 // Parse and validate the environment variables
 export function parseEnv<TSchema extends ZodTypeAny>(envSchema: TSchema): z.infer<TSchema> {

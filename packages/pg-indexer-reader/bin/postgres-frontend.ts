@@ -5,32 +5,40 @@ import "dotenv/config";
 import cors from "@koa/cors";
 import Router from "@koa/router";
 import Koa from "koa";
+import bodyParser from "@koa/bodyparser";
 import postgres from "postgres";
 import { z } from "zod";
 
-import { frontendEnvSchema, parseEnv } from "@bin/parseEnv";
-import { api } from "@/postgres/routes/api";
+import { frontendEnvSchema, parseEnv, serverEnvSchema } from "@bin/parseEnv";
+import { apiIndexer } from "@/postgres/routes/api-indexer";
+import { apiAuth } from "@/postgres/routes/api-auth";
+//import { httpsEnvSchema } from "@/utils/envSchema";
 
-const env = parseEnv(
-  z.intersection(
-    frontendEnvSchema,
-    z.object({
-      DATABASE_URL: z.string(),
-    }),
-  ),
-);
+const env = parseEnv(serverEnvSchema);
 
-const database = postgres(env.DATABASE_URL, { prepare: false });
+
+const indexerDatabase = postgres(env.INDEXER_DATABASE_URL, {
+  prepare: false,
+});
+console.log("Connected to Primodium Indexer Database (Digital Ocean).");
+
+const authDatabase = postgres(env.AUTH_DATABASE_URL, {
+  prepare: false,
+});
+console.log("Connected to Auth Database (Render PostgreSQL).");
 
 const server = new Koa();
 
 server.use(cors());
-server.use(api(database));
+server.use(bodyParser());
+
+server.use(apiAuth(authDatabase, env.JWT_SECRET));
+server.use(apiIndexer(indexerDatabase, env.JWT_SECRET));
 
 const router = new Router();
 
 router.get("/", (ctx) => {
-  ctx.body = "emit HelloWorld();";
+  ctx.body = "emit Herld(); ";
 });
 
 // k8s healthchecks
